@@ -1,2 +1,8 @@
-binance_api_key = 'trmKnqy43p8lFOOlTpEX1u6nbY34j2fr5J3DiU7TanFAPIhKxg5rxZqB2LWDWv2o'    # API-key 
-binance_api_secret = '3oNacOMuytB4cHG0PCCW43TEZJZ5CPH7HzfkWtJp0nO2ligtvcyPGSM1XZLlWNoh' # API-secret
+import json
+
+## Load credentials from json file
+cr = open("C:\\Users\\Admin\\OneDrive - České vysoké učení technické v Praze\\cred.json",) 
+data = json.load(cr)  
+
+binance_api_key = data["binance_api_key"]        # API-key 
+binance_api_secret = data["binance_api_secret"]  # API-secret
