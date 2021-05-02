@@ -1,6 +1,6 @@
 import numpy as np
+from pandas.core.frame import DataFrame
 import tensorflow as tf
-
 
 
 class TrainWindowGenerator():
@@ -19,24 +19,19 @@ class TrainWindowGenerator():
     shift: int
         Shift between input and label.
         
-    train_df: DataFrame
-        Training dataframe
-        
-    val_df: DataFrame
-        Validation dataframe
-        
-    test_df: DataFrame
-        Test dataframe
+    df: DataFrame
+        DataFrame which will be turned into 70/20/10 train/val/test dataframes
     
     label_columns: 
         label column indices
     """
     
     
-    def __init__(self, input_width, label_width, shift,
-               train_df, val_df, test_df,
+    def __init__(self, input_width, label_width, shift, df,
                label_columns=None):
         
+        train_df, val_df, test_df = self.split_dataset(df)
+
         # Store the raw data.
         self.train_df = train_df
         self.val_df = val_df
@@ -48,7 +43,7 @@ class TrainWindowGenerator():
             self.label_columns_indices = {name: i for i, name in
                                         enumerate(label_columns)}
         self.column_indices = {name: i for i, name in
-                               enumerate(train_df.columns)}
+                               enumerate(self.train_df.columns)}
 
         # Work out the window parameters.
         # This part takes arguemntes and calculate window size
@@ -125,9 +120,25 @@ class TrainWindowGenerator():
         return result
 
 
-    def __repr__(self):
-        return '\n'.join([
-            f'Total window size: {self.total_window_size}',
-            f'Input indices: {self.input_indices}',
-            f'Label indices: {self.label_indices}',
-            f'Label column name(s): {self.label_columns}'])
+    def split_dataset(self, df):
+    
+        """
+        Function returns train, validation and test dataframes. In ratio 70:20:10.
+
+        Parameters
+        ----------
+        df: DataFrame
+            DataFrame we would like to split
+
+        Returns
+        ----------
+        Three dataframes.
+        """
+        
+        n = len(df)
+        train_df = df[0:int(n*0.7)]
+        val_df = df[int(n*0.7):int(n*0.9)]
+        test_df = df[int(n*0.9):]
+        
+        return train_df, val_df, test_df
+
