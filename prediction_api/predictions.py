@@ -18,14 +18,6 @@ class PredictionResource(object):
         scheduler.start()
         print("keu2")
 
-        print("before 3 min")
-        ## Retrain model after one week
-        retrain_cheduler = BlockingScheduler()
-        retrain_cheduler.add_job(self.retrain_function, "interval", minute=10, id="retrain_func")  ## 
-        retrain_cheduler.start()
-
-        print("after 3 min")
-
 
     
     def main_function(self, past_steps):

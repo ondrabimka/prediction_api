@@ -2,6 +2,6 @@ import falcon
 
 from .predictions import PredictionResource
 
-api = application = falcon.API()
+app = falcon.App()
 prediction_api = PredictionResource()
-api.add_route('/prediction_api', prediction_api)
+app.add_route('/prediction_api', prediction_api)
