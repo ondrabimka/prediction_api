@@ -9,19 +9,17 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 class PredictionResource(object):
 
     def __init__(self):
+        
         self.model = ModelClass(24)
 
-        print("keu1")
         ## Runs function every minute.  
         scheduler = BlockingScheduler()
         scheduler.add_job(self.main_function, "cron", second=9, kwargs={"past_steps":2}, id='main_func')  ## 9 seconds because data is incoplete when loading sooner. Use cron when you want to run the job periodically at certain time(s) of day.
         scheduler.start()
-        print("keu2")
 
 
     
     def main_function(self, past_steps):
-        print("main function")
         self.model.get_predicted_value()
 
     def retrain_function(self):

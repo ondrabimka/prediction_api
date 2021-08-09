@@ -40,7 +40,7 @@ class ModelClass():
         self.main_df = init_df
 
         ## Load init model
-        path = "C:/Users/Admin/OneDrive - České vysoké učení technické v Praze/Plocha/Python/GraphPrediction/models_pct/models_07_04_2021/gru_s.model"
+        path = "C:/Users/Admin/OneDrive - České vysoké učení technické v Praze/Plocha/Python/GraphPrediction/models_pct/models_08_04_2021/lstm.model"
         self.model = load_model(path)
 
         ## Load scaler 
@@ -50,7 +50,7 @@ class ModelClass():
 
     
     ## List of symbols I am interested in
-    symbols = ["BTCBUSD", "ETHBUSD", "BCHBUSD", "LTCBUSD", "XLMBUSD", "ADABUSD"]
+    symbols = ["BTCBUSD", "ETHBUSD", "BCHBUSD", "LTCBUSD"]
 
     ## Empty main dataframe
     main_df = pd.DataFrame()
@@ -143,12 +143,12 @@ class ModelClass():
         prediction = self.model.predict(to_predict)
 
         ## Append predictions with time.
-        prediction_time = datetime.utcnow() + timedelta(minutes = 2)  ## data is in UTC + O
+        prediction_time = datetime.utcnow() + timedelta(minutes = 1)  ## data is in UTC + O
         prediction_time.strftime("%Y-%m-%d %H:%M")
-        to_append_dict = {"timestamp": prediction_time.replace(second=0, microsecond=0), "predicted_value":prediction[0][0]}
+        to_append_dict = {"timestamp": prediction_time.replace(second=0, microsecond=0), "predicted_value":prediction[0][23][0]}
         self.predictions.append(to_append_dict)
 
-        print("Predicted value: " + str(prediction[0][0]))
+        print("Predicted value: " + str(prediction[0][23][0]))
 
         if self.main_df.shape[0] > 35:
             self.save_data()
@@ -211,13 +211,9 @@ class ModelClass():
 
         """
 
-        print("saving data")
-
         predictions_df = pd.DataFrame(self.predictions, columns=["timestamp", "predicted_value"])
         predictions_df.set_index("timestamp", inplace=True)
 
-
-        print("before merge")
         print(predictions_df)
 
         to_save_df = pd.concat([self.main_df[["BTCBUSD_close","LTCBUSD_close","ETHBUSD_close","BCHBUSD_close"]], predictions_df], axis=1)
