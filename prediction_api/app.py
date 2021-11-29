@@ -1,5 +1,5 @@
 import falcon
-
+from wsgiref import simple_server
 from .predictions import PredictionResource
 
 app = falcon.App()

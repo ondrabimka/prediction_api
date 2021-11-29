@@ -59,44 +59,6 @@ class ModelClass():
     predictions = []
 
 
-    def get_data(self, past_steps=int):
-
-        """
-        This functoins gets data from Binance and creates dataframe from it. 
-
-        Parameters
-        ----------
-        past_steps: int
-            Number of minutes to the past we want to obtain data.
-
-        Returns
-        -------
-        Dataframe with close prices of defined crypto
-        """
-
-        df = pd.DataFrame()
-
-        for symbol in self.symbols:
-
-            ## Get data 
-            recived_data = self.b_client.get_klines(symbol=symbol, interval= '1m', limit=past_steps)
-
-            ## Convert data to pd dataframe
-            data = pd.DataFrame(recived_data, columns = ["timestamp", "open", "high", "low", "close", "volume", "close_time", "quote_av", "trades", "tb_base_av", "tb_quote_av", "ignore" ])
-            data["timestamp"] = pd.to_datetime(data['timestamp'], unit='ms')
-            data = data[["timestamp","close"]]
-            data["close"] = pd.to_numeric(data["close"], errors="coerce")
-            data.set_index("timestamp", inplace=True)
-            data.rename(columns={"close":f"{symbol}_close"}, inplace=True)
-
-            if len(df.index) == 0:
-                df = data
-            else: 
-                df = df.join(data)
- 
-        return df
-
-
     def update_df(self):
         
         """
