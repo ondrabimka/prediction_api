@@ -1,6 +1,6 @@
 import falcon
 from wsgiref import simple_server
-from .predictions import PredictionResource
+from predictions import PredictionResource
 
 app = falcon.App()
 prediction_api = PredictionResource()

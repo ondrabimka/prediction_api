@@ -2,19 +2,19 @@
 ### Import libraries ###
 from datetime import datetime, timedelta
 import time
-from typing import Dict
-from google.protobuf.text_format import PrintField
 import pandas as pd
 import numpy as np
-from binance.client import Client
-from binance.enums import *
-from tensorflow.python.keras.backend import print_tensor
-from prediction_api import credentials
+from data_class import DataClass
 import tensorflow as tf
 from tensorflow.keras.models import load_model
-from prediction_api.window import TrainWindowGenerator
+from window import TrainWindowGenerator
 import joblib
 from sqlalchemy import create_engine
+import asyncio
+from optim_pred import OptimPredClass 
+import credentials
+
+###
 
 class ModelClass():
 
@@ -24,33 +24,41 @@ class ModelClass():
     Parameters
     ----------
     window_size: int 
-        size of loaded model window.
+        Size of loaded model window.
+        
+    symbol_to_predic: str
+        Symbol we are predicting
+    
     """
 
-    def __init__(self, window_size=int):
-
+    def __init__(self, window_size:int, symbol_to_predict:str):
+        
+        ## Window size
+        self.window_size = window_size
+        
+        ## Symbol we are predicting 
+        self.symbol_to_predict = symbol_to_predict
 
         ## Create binance client for data api
-        b_client = Client(api_key=credentials.binance_api_key, api_secret=credentials.binance_api_secret)
-        self.b_client = b_client
+        self.data_client = DataClass(api_key=credentials.binance_api_key, api_secret=credentials.binance_api_secret)
 
         ## Get data 
-        init_df = self.get_data(window_size)
+        init_df = asyncio.run(self.data_client.get_data(self.symbols, window_size))
         print(init_df)
         self.main_df = init_df
 
         ## Load init model
-        path = "C:/Users/Admin/OneDrive - České vysoké učení technické v Praze/Plocha/Python/GraphPrediction/models_pct/models_08_04_2021/lstm.model"
+        path = "C:/Users/Admin/OneDrive - České vysoké učení technické v Praze/Plocha/Python/GraphPrediction/models_pct/models_02_01_2022_10_b_3_w_3_0_crypto_DOGEBUSD_all_18_oct_w_volume_trades_1024x5/g_b_s.model"
         self.model = load_model(path)
 
         ## Load scaler 
-        self.loaded_scaler = joblib.load("C:/Users/Admin/OneDrive - České vysoké učení technické v Praze/Plocha/Python/GraphPrediction/scalers/scaler_my_pct.gz")
+        self.loaded_scaler = joblib.load("C:/Users/Admin/OneDrive - České vysoké učení technické v Praze/Plocha/Python/GraphPrediction/scalers/scaler_02_01_2022_4_b_3_w_3_0_crypto_DOGEBUSD_all_18_oct_w_volume_trades_1024x5.gz")
 
         self.stop_saving = False
+        
 
-    
     ## List of symbols I am interested in
-    symbols = ["BTCBUSD", "ETHBUSD", "BCHBUSD", "LTCBUSD"]
+    symbols = ["DOGEBUSD","BTCBUSD","ETHBUSD","FTTBUSD","SNXBUSD","SRMBUSD","ADABUSD","LINKBUSD","ZECBUSD","MASKBUSD","CRVBUSD","SYSBUSD","GALABUSD","SANDBUSD"]
 
     ## Empty main dataframe
     main_df = pd.DataFrame()
@@ -70,7 +78,7 @@ class ModelClass():
 
         """
 
-        df_update = self.get_data(3)
+        df_update = asyncio.run(self.data_client.get_data(self.symbols))
         print("df update")
         print(time.strftime("%H:%M:%S"))
         print(df_update)
@@ -90,10 +98,15 @@ class ModelClass():
         """
 
         self.update_df()
+        
+        ## Add _close to list
+        string = '_close'
+        symbols_close = [x + string for x in self.symbols]
+        
 
         ## Select desired part of the DF
-        main_df_pct = self.main_df.tail(25).copy()
-        main_df_pct = main_df_pct[["BTCBUSD_close","LTCBUSD_close","ETHBUSD_close","BCHBUSD_close"]].pct_change(fill_method="ffill")
+        main_df_pct = self.main_df.tail(self.window_size+1).copy()
+        main_df_pct[symbols_close] = main_df_pct[symbols_close].pct_change(fill_method="ffill")
         main_df_pct = main_df_pct[1:]
 
         ## Crate prediction
@@ -107,16 +120,30 @@ class ModelClass():
         ## Append predictions with time.
         prediction_time = datetime.utcnow() + timedelta(minutes = 1)  ## data is in UTC + O
         prediction_time.strftime("%Y-%m-%d %H:%M")
-        to_append_dict = {"timestamp": prediction_time.replace(second=0, microsecond=0), "predicted_value":prediction[0][23][0]}
+        #to_append_dict = {"timestamp": prediction_time.replace(second=0, microsecond=0), "predicted_value":prediction[0][self.window_size-1][0]}
+        to_append_dict = {"timestamp": prediction_time.replace(second=0, microsecond=0), "predicted_value":prediction[0][0]}
         self.predictions.append(to_append_dict)
 
-        print("Predicted value: " + str(prediction[0][23][0]))
+        #print("Predicted value: " + str(prediction[0][self.window_size-1][0]))
+        print("Predicted value: " + str(prediction[0][0]))
 
-        if self.main_df.shape[0] > 35:
+        if self.main_df.shape[0] > 55:
+            
+            #upper, lower, val = OptimPredClass.get_optimized_thresholds(self.main_df)
+            print("uper")
+            #print(upper)
+            #print(lower)
+            #print(val)
+            
             self.save_data()
-            self.stop_saving = True
 
 
+    ##################################
+    ###  Retraining model function ###    
+    ##################################
+    
+    #region Retraining model function
+    
     def retrain_function(self):
 
         """
@@ -128,14 +155,13 @@ class ModelClass():
 
         """
 
-        print("inside retrain fucntion")
+        print("inside retrain function")
 
         my_df = pd.DataFrame(self.loaded_scaler.transform(self.main_df),columns = self.main_df.columns)
         window = TrainWindowGenerator(24, 1, 2, my_df)
 
         self.save_data()
         self.retrain_model(window, 3, 80)
-
 
 
     def retrain_model(self, window, patience, epochs):
@@ -160,7 +186,15 @@ class ModelClass():
         early_stopping = tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=patience, mode="min", restore_best_weights=True)
         history = self.model.fit(window.train, epochs=epochs, validation_data=window.val, callbacks=[early_stopping])
         self.history = history
-
+        
+    #endregion
+        
+        
+    ##############################
+    ###  Saving data functions ###    
+    ##############################
+    
+    #region Saving data functions
 
     def save_data(self):
 
@@ -177,14 +211,18 @@ class ModelClass():
         predictions_df.set_index("timestamp", inplace=True)
 
         print(predictions_df)
+        
+        ## Add _close to list
+        string = '_close'
+        symbols_close = [x + string for x in self.symbols]
 
-        to_save_df = pd.concat([self.main_df[["BTCBUSD_close","LTCBUSD_close","ETHBUSD_close","BCHBUSD_close"]], predictions_df], axis=1)
+        to_save_df = pd.concat([self.main_df[symbols_close], predictions_df], axis=1)
 
-        self.save_to_sql(to_save_df)
+        #self.save_to_sql(to_save_df)
 
         self.main_df = self.main_df.tail(30) ## Data is saved now I can reduce main_df size
 
-        ## self.save_as_csv(to_save_df)
+        self.save_as_csv(to_save_df)
 
 
 
@@ -239,11 +277,11 @@ class ModelClass():
             dataframe we would like to save 
 
         """
-
-
+        
         csv_file_path = 'C:/Users/Admin/OneDrive - České vysoké učení technické v Praze/Plocha/Python/GraphPrediction/prediction_api_files/predictions_' + str(datetime.now().strftime('%Y_%m_%d_%H_%M_%S')) + '.csv'
         df_to_csv.to_csv(csv_file_path)
         
+    #endregion
 
 
 

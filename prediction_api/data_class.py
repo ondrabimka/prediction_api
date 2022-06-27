@@ -2,14 +2,14 @@ import asyncio
 from binance.client import Client
 from binance.enums import *
 import pandas as pd
-import time
+import credentials
 
 class DataClass(Client):
 
-    async def get_data_for_symbol(self, symbol:str, past_steps:int, interval='1m'):
+    async def get_data_for_symbol(self, symbol:str, past_steps:int, interval='1m', to_keep_from_data = ["timestamp","close","volume","trades"]):
         
         """
-        This function gets data from Binance and creates dataframe from it. 
+        This function gets data from Binance for a specific symbol. 
 
         Parameters
         ----------
@@ -25,6 +25,12 @@ class DataClass(Client):
         Returns
         -------
         Dataframe with close price, volume and trades of defined crypto
+        
+        Example
+        -------
+        
+        >>> get_data_for_symbol("BTCBUSD", 3, interval='1m', to_keep_from_data = ["timestamp","close","volume","trades"])
+        
         """
         
         print(symbol)
@@ -35,7 +41,7 @@ class DataClass(Client):
         ## Convert data to pd dataframe
         data = pd.DataFrame(response, columns = ["timestamp", "open", "high", "low", "close", "volume", "close_time", "quote_av", "trades", "tb_base_av", "tb_quote_av", "ignore" ])
         data["timestamp"] = pd.to_datetime(data['timestamp'], unit='ms')
-        data = data[["timestamp","close","volume","trades"]]
+        data = data[to_keep_from_data]
         data["close"] = pd.to_numeric(data["close"], errors="coerce")
         data.set_index("timestamp", inplace=True)
         data.rename(columns={"close":f"{symbol}_close", "volume":f"{symbol}_volume", "trades":f"{symbol}_trades"}, inplace=True)
@@ -43,8 +49,25 @@ class DataClass(Client):
         return data
     
 
-    async def get_data(self):
-        res = await asyncio.gather(self.get_data_for_symbol("BTCBUSD", 3),  self.get_data_for_symbol("ETHBUSD", 3),)
+    async def get_data(self, symbols:list, past_steps=3):
+        
+        """
+        This function specifies which sumybol to take and takes obtained dataframes and puts theem to one. 
+
+        Parameters
+        ----------
+        symbols: list
+            List of symbols
+        
+        past_steps: int
+            Number of minutes to the past we want to obtain data.
+
+        Returns
+        -------
+        Dataframe with close price, volume and trades of defined crypto
+        """
+        
+        res = await asyncio.gather(*(self.get_data_for_symbol(symbol, past_steps) for symbol in symbols),)
         
         df = pd.DataFrame()
         
@@ -59,17 +82,10 @@ class DataClass(Client):
         
         
 
-
-
 if __name__ == '__main__':
     
-
-    print("start")
-    
-    binance_api_key = 'trmKnqy43p8lFOOlTpEX1u6nbY34j2fr5J3DiU7TanFAPIhKxg5rxZqB2LWDWv2o'    # API-key 
-    binance_api_secret = '3oNacOMuytB4cHG0PCCW43TEZJZ5CPH7HzfkWtJp0nO2ligtvcyPGSM1XZLlWNoh' # API-secret
-    
-    my_class = DataClass(api_key=binance_api_key, api_secret=binance_api_secret)
-    result_df = asyncio.run(my_class.get_data())
+    my_class = DataClass(api_key=credentials.binance_api_key, api_secret=credentials.binance_api_secret)
+    result_df = asyncio.run(my_class.get_data(["BTCBUSD","ETHBUSD","LTCBUSD"]))
     print(result_df)
+    
     
